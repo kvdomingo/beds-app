@@ -3,6 +3,7 @@
 #   sqlc v1.31.1
 # source: wards.sql
 from collections.abc import AsyncIterator, Iterator
+import pydantic
 import typing
 from typing import cast
 
@@ -18,28 +19,65 @@ from app.repositories.generated import models
 CREATE_WARD = """-- name: create_ward \\:one
 INSERT INTO wards (name)
 VALUES (:p1)
-RETURNING id, name
+RETURNING id, created_at, updated_at, name
 """
 
 
 DELETE_WARD = """-- name: delete_ward \\:one
 DELETE FROM wards
 WHERE id = :p1
-RETURNING id, name
+RETURNING id, created_at, updated_at, name
+"""
+
+
+GET_WARD = """-- name: get_ward \\:one
+SELECT id, created_at, updated_at, name
+FROM wards
+WHERE id = :p1
 """
 
 
 LIST_WARDS = """-- name: list_wards \\:many
-SELECT id, name
+SELECT id, created_at, updated_at, name
 FROM wards
+ORDER BY name
 """
+
+
+LIST_WARDS_COUNTS = """-- name: list_wards_counts \\:many
+WITH t1 AS (
+    SELECT
+        w.id, w.created_at, w.updated_at, w.name,
+        COUNT(DISTINCT b.id) AS bed_capacity,
+        COUNT(DISTINCT p.id) FILTER (WHERE p.is_admitted) AS patients_admitted
+    FROM wards w
+    LEFT JOIN beds b ON b.ward_id = w.id
+    LEFT JOIN patients p ON p.bed_id = b.id
+    GROUP BY w.id
+)
+SELECT
+    id, created_at, updated_at, name, bed_capacity, patients_admitted,
+    bed_capacity - patients_admitted AS beds_available
+FROM t1
+ORDER BY name
+"""
+
+
+class ListWardsCountsRow(pydantic.BaseModel):
+    id: str
+    created_at: pydantic.AwareDatetime
+    updated_at: pydantic.AwareDatetime
+    name: str
+    bed_capacity: int
+    patients_admitted: int
+    beds_available: int
 
 
 UPDATE_WARD = """-- name: update_ward \\:one
 UPDATE wards
 SET name = :p2
 WHERE id = :p1
-RETURNING id, name
+RETURNING id, created_at, updated_at, name
 """
 
 
@@ -48,7 +86,11 @@ class QuerierProtocol(typing.Protocol):
 
     def delete_ward(self, *, id: str) -> models.Ward | None: ...
 
+    def get_ward(self, *, id: str) -> models.Ward | None: ...
+
     def list_wards(self) -> Iterator[models.Ward]: ...
+
+    def list_wards_counts(self) -> Iterator[ListWardsCountsRow]: ...
 
     def update_ward(self, *, id: str, name: str) -> models.Ward | None: ...
 
@@ -58,7 +100,11 @@ class AsyncQuerierProtocol(typing.Protocol):
 
     async def delete_ward(self, *, id: str) -> models.Ward | None: ...
 
+    async def get_ward(self, *, id: str) -> models.Ward | None: ...
+
     async def list_wards(self) -> AsyncIterator[models.Ward]: ...
+
+    async def list_wards_counts(self) -> AsyncIterator[ListWardsCountsRow]: ...
 
     async def update_ward(self, *, id: str, name: str) -> models.Ward | None: ...
 
@@ -80,7 +126,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             return None
         return models.Ward(
             id=cast(str, row[0]),
-            name=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            name=cast(str, row[3]),
         )
 
     def delete_ward(self, *, id: str) -> models.Ward | None:
@@ -94,7 +142,25 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             return None
         return models.Ward(
             id=cast(str, row[0]),
-            name=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            name=cast(str, row[3]),
+        )
+
+    def get_ward(self, *, id: str) -> models.Ward | None:
+        try:
+            row = self._conn.execute(sqlalchemy.text(GET_WARD), {"p1": id}).first()
+        except sqlalchemy.exc.IntegrityError as e:
+            raise errors._wrap_integrity_error(e, "get_ward") from e
+        except sqlalchemy.exc.OperationalError as e:
+            raise errors._wrap_operational_error(e, "get_ward") from e
+        if row is None:
+            return None
+        return models.Ward(
+            id=cast(str, row[0]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            name=cast(str, row[3]),
         )
 
     def list_wards(self) -> Iterator[models.Ward]:
@@ -103,12 +169,32 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             for row in result:
                 yield models.Ward(
                     id=cast(str, row[0]),
-                    name=cast(str, row[1]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    name=cast(str, row[3]),
                 )
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "list_wards") from e
         except sqlalchemy.exc.OperationalError as e:
             raise errors._wrap_operational_error(e, "list_wards") from e
+
+    def list_wards_counts(self) -> Iterator[ListWardsCountsRow]:
+        try:
+            result = self._conn.execute(sqlalchemy.text(LIST_WARDS_COUNTS))
+            for row in result:
+                yield ListWardsCountsRow(
+                    id=cast(str, row[0]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    name=cast(str, row[3]),
+                    bed_capacity=cast(int, row[4]),
+                    patients_admitted=cast(int, row[5]),
+                    beds_available=cast(int, row[6]),
+                )
+        except sqlalchemy.exc.IntegrityError as e:
+            raise errors._wrap_integrity_error(e, "list_wards_counts") from e
+        except sqlalchemy.exc.OperationalError as e:
+            raise errors._wrap_operational_error(e, "list_wards_counts") from e
 
     def update_ward(self, *, id: str, name: str) -> models.Ward | None:
         try:
@@ -123,7 +209,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             return None
         return models.Ward(
             id=cast(str, row[0]),
-            name=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            name=cast(str, row[3]),
         )
 
 
@@ -148,7 +236,9 @@ class AsyncQuerier[
             return None
         return models.Ward(
             id=cast(str, row[0]),
-            name=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            name=cast(str, row[3]),
         )
 
     async def delete_ward(self, *, id: str) -> models.Ward | None:
@@ -164,7 +254,27 @@ class AsyncQuerier[
             return None
         return models.Ward(
             id=cast(str, row[0]),
-            name=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            name=cast(str, row[3]),
+        )
+
+    async def get_ward(self, *, id: str) -> models.Ward | None:
+        try:
+            row = (
+                await self._conn.execute(sqlalchemy.text(GET_WARD), {"p1": id})
+            ).first()
+        except sqlalchemy.exc.IntegrityError as e:
+            raise errors._wrap_integrity_error(e, "get_ward") from e
+        except sqlalchemy.exc.OperationalError as e:
+            raise errors._wrap_operational_error(e, "get_ward") from e
+        if row is None:
+            return None
+        return models.Ward(
+            id=cast(str, row[0]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            name=cast(str, row[3]),
         )
 
     async def list_wards(self) -> AsyncIterator[models.Ward]:
@@ -173,12 +283,32 @@ class AsyncQuerier[
             async for row in result:
                 yield models.Ward(
                     id=cast(str, row[0]),
-                    name=cast(str, row[1]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    name=cast(str, row[3]),
                 )
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "list_wards") from e
         except sqlalchemy.exc.OperationalError as e:
             raise errors._wrap_operational_error(e, "list_wards") from e
+
+    async def list_wards_counts(self) -> AsyncIterator[ListWardsCountsRow]:
+        try:
+            result = await self._conn.stream(sqlalchemy.text(LIST_WARDS_COUNTS))
+            async for row in result:
+                yield ListWardsCountsRow(
+                    id=cast(str, row[0]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    name=cast(str, row[3]),
+                    bed_capacity=cast(int, row[4]),
+                    patients_admitted=cast(int, row[5]),
+                    beds_available=cast(int, row[6]),
+                )
+        except sqlalchemy.exc.IntegrityError as e:
+            raise errors._wrap_integrity_error(e, "list_wards_counts") from e
+        except sqlalchemy.exc.OperationalError as e:
+            raise errors._wrap_operational_error(e, "list_wards_counts") from e
 
     async def update_ward(self, *, id: str, name: str) -> models.Ward | None:
         try:
@@ -195,5 +325,7 @@ class AsyncQuerier[
             return None
         return models.Ward(
             id=cast(str, row[0]),
-            name=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            name=cast(str, row[3]),
         )

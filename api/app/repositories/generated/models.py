@@ -6,22 +6,30 @@ import pydantic
 
 class Bed(pydantic.BaseModel):
     id: str
+    created_at: pydantic.AwareDatetime
+    updated_at: pydantic.AwareDatetime
     ward_id: str
 
 
 class Patient(pydantic.BaseModel):
     id: str
+    created_at: pydantic.AwareDatetime
+    updated_at: pydantic.AwareDatetime
     name: str
-    bed_id: str
+    bed_id: str | None
     is_admitted: bool
 
 
 class User(pydantic.BaseModel):
     id: str
+    created_at: pydantic.AwareDatetime
+    updated_at: pydantic.AwareDatetime
     name: str
     email: str
 
 
 class Ward(pydantic.BaseModel):
     id: str
+    created_at: pydantic.AwareDatetime
+    updated_at: pydantic.AwareDatetime
     name: str

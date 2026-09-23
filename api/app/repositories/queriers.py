@@ -9,6 +9,7 @@ from app.repositories.generated import beds, patients, wards
 
 class Queriers:
     def __init__(self, db: AsyncSession = Depends()):
+        self.db = db
         self.wards = wards.AsyncQuerier(conn=db)
         self.beds = beds.AsyncQuerier(conn=db)
         self.patients = patients.AsyncQuerier(conn=db)

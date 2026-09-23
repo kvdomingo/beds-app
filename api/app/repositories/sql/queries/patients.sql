@@ -1,3 +1,9 @@
+-- name: ListPatients :many
+SELECT *
+FROM patients
+ORDER BY id DESC;
+
+
 -- name: CheckInPatient :one
 INSERT INTO patients (name, bed_id, is_admitted)
 VALUES ($1, $2, TRUE)

@@ -3,10 +3,10 @@
 #   sqlc v1.31.1
 # source: beds.sql
 from collections.abc import AsyncIterator, Iterator
-import pydantic
 import typing
 from typing import cast
 
+import pydantic
 import sqlalchemy
 import sqlalchemy.exc
 import sqlalchemy.ext.asyncio
@@ -16,52 +16,79 @@ from app.repositories.generated import errors
 from app.repositories.generated import models
 
 
-COUNT_BEDS_BY_WARD = """-- name: count_beds_by_ward \\:many
-SELECT
-    b.ward_id,
-    w.name,
-    COUNT(*) AS count_total,
-    COUNT(*) FILTER (WHERE p.is_admitted) AS count_occupied,
-    COUNT(*) FILTER (WHERE NOT p.is_admitted) AS count_available
+COUNT_AVAILABLE_BEDS_IN_WARD = """-- name: count_available_beds_in_ward \\:one
+SELECT COUNT(*)
 FROM beds b
-LEFT JOIN patients p ON p.bed_id = b.id
-LEFT JOIN wards w ON w.id = b.ward_id
-GROUP BY b.ward_id
+WHERE
+    b.ward_id = :p1
+    AND NOT EXISTS (
+        SELECT 1
+        FROM patients p
+        WHERE
+            p.bed_id = b.id
+            AND p.is_admitted
+    )
 """
 
 
-class CountBedsByWardRow(pydantic.BaseModel):
-    ward_id: str
-    name: str | None
-    count_total: int
-    count_occupied: int
-    count_available: int
+COUNT_TOTAL_BEDS_IN_WARD = """-- name: count_total_beds_in_ward \\:one
+SELECT COUNT(*)
+FROM beds
+WHERE ward_id = :p1
+"""
 
 
 CREATE_BED = """-- name: create_bed \\:one
 INSERT INTO beds (ward_id)
 VALUES (:p1)
-RETURNING id, ward_id
+RETURNING id, created_at, updated_at, ward_id
+"""
+
+
+CREATE_BEDS = """-- name: create_beds \\:many
+INSERT INTO beds (ward_id)
+SELECT :p1 FROM generate_series(1, :p2\\:\\:INT)
+RETURNING id, created_at, updated_at, ward_id
 """
 
 
 DELETE_BED = """-- name: delete_bed \\:one
 DELETE FROM beds
 WHERE id = :p1
-RETURNING id, ward_id
+RETURNING id, created_at, updated_at, ward_id
+"""
+
+
+DELETE_BEDS = """-- name: delete_beds \\:many
+DELETE FROM beds
+WHERE id IN (
+    SELECT b.id
+    FROM beds b
+    WHERE
+        b.ward_id = :p1
+        AND NOT EXISTS (
+            SELECT 1
+            FROM patients p
+            WHERE p.bed_id = b.id
+        )
+    LIMIT :p2
+)
+RETURNING id, created_at, updated_at, ward_id
 """
 
 
 LIST_ALL_BEDS = """-- name: list_all_beds \\:many
-SELECT id, ward_id
+SELECT id, created_at, updated_at, ward_id
 FROM beds
+ORDER BY id
 """
 
 
 LIST_BEDS_IN_WARD = """-- name: list_beds_in_ward \\:many
-SELECT id, ward_id
+SELECT id, created_at, updated_at, ward_id
 FROM beds
 WHERE ward_id = :p1
+ORDER BY id
 """
 
 
@@ -69,16 +96,22 @@ UPDATE_BED = """-- name: update_bed \\:one
 UPDATE beds
 SET ward_id = :p2
 WHERE id = :p1
-RETURNING id, ward_id
+RETURNING id, created_at, updated_at, ward_id
 """
 
 
 class QuerierProtocol(typing.Protocol):
-    def count_beds_by_ward(self) -> Iterator[CountBedsByWardRow]: ...
+    def count_available_beds_in_ward(self, *, ward_id: str) -> int | None: ...
+
+    def count_total_beds_in_ward(self, *, ward_id: str) -> int | None: ...
 
     def create_bed(self, *, ward_id: str) -> models.Bed | None: ...
 
+    def create_beds(self, *, ward_id: str, count: int) -> Iterator[models.Bed]: ...
+
     def delete_bed(self, *, id: str) -> models.Bed | None: ...
+
+    def delete_beds(self, *, ward_id: str, limit: int) -> Iterator[models.Bed]: ...
 
     def list_all_beds(self) -> Iterator[models.Bed]: ...
 
@@ -88,11 +121,21 @@ class QuerierProtocol(typing.Protocol):
 
 
 class AsyncQuerierProtocol(typing.Protocol):
-    async def count_beds_by_ward(self) -> AsyncIterator[CountBedsByWardRow]: ...
+    async def count_available_beds_in_ward(self, *, ward_id: str) -> int | None: ...
+
+    async def count_total_beds_in_ward(self, *, ward_id: str) -> int | None: ...
 
     async def create_bed(self, *, ward_id: str) -> models.Bed | None: ...
 
+    async def create_beds(
+        self, *, ward_id: str, count: int
+    ) -> AsyncIterator[models.Bed]: ...
+
     async def delete_bed(self, *, id: str) -> models.Bed | None: ...
+
+    async def delete_beds(
+        self, *, ward_id: str, limit: int
+    ) -> AsyncIterator[models.Bed]: ...
 
     async def list_all_beds(self) -> AsyncIterator[models.Bed]: ...
 
@@ -107,21 +150,33 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
     def __init__(self, conn: T):
         self._conn = conn
 
-    def count_beds_by_ward(self) -> Iterator[CountBedsByWardRow]:
+    def count_available_beds_in_ward(self, *, ward_id: str) -> int | None:
         try:
-            result = self._conn.execute(sqlalchemy.text(COUNT_BEDS_BY_WARD))
-            for row in result:
-                yield CountBedsByWardRow(
-                    ward_id=cast(str, row[0]),
-                    name=cast(str | None, row[1]),
-                    count_total=cast(int, row[2]),
-                    count_occupied=cast(int, row[3]),
-                    count_available=cast(int, row[4]),
-                )
+            row = self._conn.execute(
+                sqlalchemy.text(COUNT_AVAILABLE_BEDS_IN_WARD), {"p1": ward_id}
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_beds_by_ward") from e
+            raise errors._wrap_integrity_error(e, "count_available_beds_in_ward") from e
         except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_beds_by_ward") from e
+            raise errors._wrap_operational_error(
+                e, "count_available_beds_in_ward"
+            ) from e
+        if row is None:
+            return None
+        return cast(int, row[0])
+
+    def count_total_beds_in_ward(self, *, ward_id: str) -> int | None:
+        try:
+            row = self._conn.execute(
+                sqlalchemy.text(COUNT_TOTAL_BEDS_IN_WARD), {"p1": ward_id}
+            ).first()
+        except sqlalchemy.exc.IntegrityError as e:
+            raise errors._wrap_integrity_error(e, "count_total_beds_in_ward") from e
+        except sqlalchemy.exc.OperationalError as e:
+            raise errors._wrap_operational_error(e, "count_total_beds_in_ward") from e
+        if row is None:
+            return None
+        return cast(int, row[0])
 
     def create_bed(self, *, ward_id: str) -> models.Bed | None:
         try:
@@ -136,8 +191,27 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             return None
         return models.Bed(
             id=cast(str, row[0]),
-            ward_id=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            ward_id=cast(str, row[3]),
         )
+
+    def create_beds(self, *, ward_id: str, count: int) -> Iterator[models.Bed]:
+        try:
+            result = self._conn.execute(
+                sqlalchemy.text(CREATE_BEDS), {"p1": ward_id, "p2": count}
+            )
+            for row in result:
+                yield models.Bed(
+                    id=cast(str, row[0]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    ward_id=cast(str, row[3]),
+                )
+        except sqlalchemy.exc.IntegrityError as e:
+            raise errors._wrap_integrity_error(e, "create_beds") from e
+        except sqlalchemy.exc.OperationalError as e:
+            raise errors._wrap_operational_error(e, "create_beds") from e
 
     def delete_bed(self, *, id: str) -> models.Bed | None:
         try:
@@ -150,8 +224,27 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             return None
         return models.Bed(
             id=cast(str, row[0]),
-            ward_id=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            ward_id=cast(str, row[3]),
         )
+
+    def delete_beds(self, *, ward_id: str, limit: int) -> Iterator[models.Bed]:
+        try:
+            result = self._conn.execute(
+                sqlalchemy.text(DELETE_BEDS), {"p1": ward_id, "p2": limit}
+            )
+            for row in result:
+                yield models.Bed(
+                    id=cast(str, row[0]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    ward_id=cast(str, row[3]),
+                )
+        except sqlalchemy.exc.IntegrityError as e:
+            raise errors._wrap_integrity_error(e, "delete_beds") from e
+        except sqlalchemy.exc.OperationalError as e:
+            raise errors._wrap_operational_error(e, "delete_beds") from e
 
     def list_all_beds(self) -> Iterator[models.Bed]:
         try:
@@ -159,7 +252,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             for row in result:
                 yield models.Bed(
                     id=cast(str, row[0]),
-                    ward_id=cast(str, row[1]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    ward_id=cast(str, row[3]),
                 )
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "list_all_beds") from e
@@ -174,7 +269,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             for row in result:
                 yield models.Bed(
                     id=cast(str, row[0]),
-                    ward_id=cast(str, row[1]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    ward_id=cast(str, row[3]),
                 )
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "list_beds_in_ward") from e
@@ -194,7 +291,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             return None
         return models.Bed(
             id=cast(str, row[0]),
-            ward_id=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            ward_id=cast(str, row[3]),
         )
 
 
@@ -206,21 +305,37 @@ class AsyncQuerier[
     def __init__(self, conn: T):
         self._conn = conn
 
-    async def count_beds_by_ward(self) -> AsyncIterator[CountBedsByWardRow]:
+    async def count_available_beds_in_ward(self, *, ward_id: str) -> int | None:
         try:
-            result = await self._conn.stream(sqlalchemy.text(COUNT_BEDS_BY_WARD))
-            async for row in result:
-                yield CountBedsByWardRow(
-                    ward_id=cast(str, row[0]),
-                    name=cast(str | None, row[1]),
-                    count_total=cast(int, row[2]),
-                    count_occupied=cast(int, row[3]),
-                    count_available=cast(int, row[4]),
+            row = (
+                await self._conn.execute(
+                    sqlalchemy.text(COUNT_AVAILABLE_BEDS_IN_WARD), {"p1": ward_id}
                 )
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_beds_by_ward") from e
+            raise errors._wrap_integrity_error(e, "count_available_beds_in_ward") from e
         except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_beds_by_ward") from e
+            raise errors._wrap_operational_error(
+                e, "count_available_beds_in_ward"
+            ) from e
+        if row is None:
+            return None
+        return cast(int, row[0])
+
+    async def count_total_beds_in_ward(self, *, ward_id: str) -> int | None:
+        try:
+            row = (
+                await self._conn.execute(
+                    sqlalchemy.text(COUNT_TOTAL_BEDS_IN_WARD), {"p1": ward_id}
+                )
+            ).first()
+        except sqlalchemy.exc.IntegrityError as e:
+            raise errors._wrap_integrity_error(e, "count_total_beds_in_ward") from e
+        except sqlalchemy.exc.OperationalError as e:
+            raise errors._wrap_operational_error(e, "count_total_beds_in_ward") from e
+        if row is None:
+            return None
+        return cast(int, row[0])
 
     async def create_bed(self, *, ward_id: str) -> models.Bed | None:
         try:
@@ -235,8 +350,29 @@ class AsyncQuerier[
             return None
         return models.Bed(
             id=cast(str, row[0]),
-            ward_id=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            ward_id=cast(str, row[3]),
         )
+
+    async def create_beds(
+        self, *, ward_id: str, count: int
+    ) -> AsyncIterator[models.Bed]:
+        try:
+            result = await self._conn.stream(
+                sqlalchemy.text(CREATE_BEDS), {"p1": ward_id, "p2": count}
+            )
+            async for row in result:
+                yield models.Bed(
+                    id=cast(str, row[0]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    ward_id=cast(str, row[3]),
+                )
+        except sqlalchemy.exc.IntegrityError as e:
+            raise errors._wrap_integrity_error(e, "create_beds") from e
+        except sqlalchemy.exc.OperationalError as e:
+            raise errors._wrap_operational_error(e, "create_beds") from e
 
     async def delete_bed(self, *, id: str) -> models.Bed | None:
         try:
@@ -251,8 +387,29 @@ class AsyncQuerier[
             return None
         return models.Bed(
             id=cast(str, row[0]),
-            ward_id=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            ward_id=cast(str, row[3]),
         )
+
+    async def delete_beds(
+        self, *, ward_id: str, limit: int
+    ) -> AsyncIterator[models.Bed]:
+        try:
+            result = await self._conn.stream(
+                sqlalchemy.text(DELETE_BEDS), {"p1": ward_id, "p2": limit}
+            )
+            async for row in result:
+                yield models.Bed(
+                    id=cast(str, row[0]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    ward_id=cast(str, row[3]),
+                )
+        except sqlalchemy.exc.IntegrityError as e:
+            raise errors._wrap_integrity_error(e, "delete_beds") from e
+        except sqlalchemy.exc.OperationalError as e:
+            raise errors._wrap_operational_error(e, "delete_beds") from e
 
     async def list_all_beds(self) -> AsyncIterator[models.Bed]:
         try:
@@ -260,7 +417,9 @@ class AsyncQuerier[
             async for row in result:
                 yield models.Bed(
                     id=cast(str, row[0]),
-                    ward_id=cast(str, row[1]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    ward_id=cast(str, row[3]),
                 )
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "list_all_beds") from e
@@ -275,7 +434,9 @@ class AsyncQuerier[
             async for row in result:
                 yield models.Bed(
                     id=cast(str, row[0]),
-                    ward_id=cast(str, row[1]),
+                    created_at=cast(pydantic.AwareDatetime, row[1]),
+                    updated_at=cast(pydantic.AwareDatetime, row[2]),
+                    ward_id=cast(str, row[3]),
                 )
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "list_beds_in_ward") from e
@@ -297,5 +458,7 @@ class AsyncQuerier[
             return None
         return models.Bed(
             id=cast(str, row[0]),
-            ward_id=cast(str, row[1]),
+            created_at=cast(pydantic.AwareDatetime, row[1]),
+            updated_at=cast(pydantic.AwareDatetime, row[2]),
+            ward_id=cast(str, row[3]),
         )
