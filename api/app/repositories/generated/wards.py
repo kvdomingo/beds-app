@@ -44,31 +44,23 @@ RETURNING id, name
 
 
 class QuerierProtocol(typing.Protocol):
-    def create_ward(self, *, name: str) -> models.Ward | None:
-        ...
+    def create_ward(self, *, name: str) -> models.Ward | None: ...
 
-    def delete_ward(self, *, id: str) -> models.Ward | None:
-        ...
+    def delete_ward(self, *, id: str) -> models.Ward | None: ...
 
-    def list_wards(self) -> Iterator[models.Ward]:
-        ...
+    def list_wards(self) -> Iterator[models.Ward]: ...
 
-    def update_ward(self, *, id: str, name: str) -> models.Ward | None:
-        ...
+    def update_ward(self, *, id: str, name: str) -> models.Ward | None: ...
 
 
 class AsyncQuerierProtocol(typing.Protocol):
-    async def create_ward(self, *, name: str) -> models.Ward | None:
-        ...
+    async def create_ward(self, *, name: str) -> models.Ward | None: ...
 
-    async def delete_ward(self, *, id: str) -> models.Ward | None:
-        ...
+    async def delete_ward(self, *, id: str) -> models.Ward | None: ...
 
-    async def list_wards(self) -> AsyncIterator[models.Ward]:
-        ...
+    async def list_wards(self) -> AsyncIterator[models.Ward]: ...
 
-    async def update_ward(self, *, id: str, name: str) -> models.Ward | None:
-        ...
+    async def update_ward(self, *, id: str, name: str) -> models.Ward | None: ...
 
 
 class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
@@ -120,7 +112,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
 
     def update_ward(self, *, id: str, name: str) -> models.Ward | None:
         try:
-            row = self._conn.execute(sqlalchemy.text(UPDATE_WARD), {"p1": id, "p2": name}).first()
+            row = self._conn.execute(
+                sqlalchemy.text(UPDATE_WARD), {"p1": id, "p2": name}
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "update_ward") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -133,7 +127,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
         )
 
 
-class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.asyncio.AsyncSession]:
+class AsyncQuerier[
+    T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.asyncio.AsyncSession
+]:
     _conn: T
 
     def __init__(self, conn: T):
@@ -141,7 +137,9 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def create_ward(self, *, name: str) -> models.Ward | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(CREATE_WARD), {"p1": name})).first()
+            row = (
+                await self._conn.execute(sqlalchemy.text(CREATE_WARD), {"p1": name})
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "create_ward") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -155,7 +153,9 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def delete_ward(self, *, id: str) -> models.Ward | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(DELETE_WARD), {"p1": id})).first()
+            row = (
+                await self._conn.execute(sqlalchemy.text(DELETE_WARD), {"p1": id})
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "delete_ward") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -182,7 +182,11 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def update_ward(self, *, id: str, name: str) -> models.Ward | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(UPDATE_WARD), {"p1": id, "p2": name})).first()
+            row = (
+                await self._conn.execute(
+                    sqlalchemy.text(UPDATE_WARD), {"p1": id, "p2": name}
+                )
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "update_ward") from e
         except sqlalchemy.exc.OperationalError as e:

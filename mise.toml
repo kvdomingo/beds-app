@@ -1,6 +1,7 @@
 [tools]
 bun = "latest"
 dbmate = "latest"
+prek = "latest"
 python = { version = "3.14", postinstall = "pip install -r ~/requirements.txt" }
 sqlc = "latest"
 uv = "latest"

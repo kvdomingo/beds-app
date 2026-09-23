@@ -102,73 +102,51 @@ RETURNING id, ward_id
 
 
 class QuerierProtocol(typing.Protocol):
-    def count_available_beds(self) -> int | None:
-        ...
+    def count_available_beds(self) -> int | None: ...
 
-    def count_available_beds_in_ward(self, *, ward_id: str) -> int | None:
-        ...
+    def count_available_beds_in_ward(self, *, ward_id: str) -> int | None: ...
 
-    def count_occupied_beds(self) -> int | None:
-        ...
+    def count_occupied_beds(self) -> int | None: ...
 
-    def count_occupied_beds_in_ward(self, *, ward_id: str) -> int | None:
-        ...
+    def count_occupied_beds_in_ward(self, *, ward_id: str) -> int | None: ...
 
-    def count_total_beds(self) -> int | None:
-        ...
+    def count_total_beds(self) -> int | None: ...
 
-    def count_total_beds_in_ward(self, *, ward_id: str) -> int | None:
-        ...
+    def count_total_beds_in_ward(self, *, ward_id: str) -> int | None: ...
 
-    def create_bed(self, *, ward_id: str) -> models.Bed | None:
-        ...
+    def create_bed(self, *, ward_id: str) -> models.Bed | None: ...
 
-    def delete_bed(self, *, id: str) -> models.Bed | None:
-        ...
+    def delete_bed(self, *, id: str) -> models.Bed | None: ...
 
-    def list_all_beds(self) -> Iterator[models.Bed]:
-        ...
+    def list_all_beds(self) -> Iterator[models.Bed]: ...
 
-    def list_beds_in_ward(self, *, ward_id: str) -> Iterator[models.Bed]:
-        ...
+    def list_beds_in_ward(self, *, ward_id: str) -> Iterator[models.Bed]: ...
 
-    def update_bed(self, *, id: str, ward_id: str) -> models.Bed | None:
-        ...
+    def update_bed(self, *, id: str, ward_id: str) -> models.Bed | None: ...
 
 
 class AsyncQuerierProtocol(typing.Protocol):
-    async def count_available_beds(self) -> int | None:
-        ...
+    async def count_available_beds(self) -> int | None: ...
 
-    async def count_available_beds_in_ward(self, *, ward_id: str) -> int | None:
-        ...
+    async def count_available_beds_in_ward(self, *, ward_id: str) -> int | None: ...
 
-    async def count_occupied_beds(self) -> int | None:
-        ...
+    async def count_occupied_beds(self) -> int | None: ...
 
-    async def count_occupied_beds_in_ward(self, *, ward_id: str) -> int | None:
-        ...
+    async def count_occupied_beds_in_ward(self, *, ward_id: str) -> int | None: ...
 
-    async def count_total_beds(self) -> int | None:
-        ...
+    async def count_total_beds(self) -> int | None: ...
 
-    async def count_total_beds_in_ward(self, *, ward_id: str) -> int | None:
-        ...
+    async def count_total_beds_in_ward(self, *, ward_id: str) -> int | None: ...
 
-    async def create_bed(self, *, ward_id: str) -> models.Bed | None:
-        ...
+    async def create_bed(self, *, ward_id: str) -> models.Bed | None: ...
 
-    async def delete_bed(self, *, id: str) -> models.Bed | None:
-        ...
+    async def delete_bed(self, *, id: str) -> models.Bed | None: ...
 
-    async def list_all_beds(self) -> AsyncIterator[models.Bed]:
-        ...
+    async def list_all_beds(self) -> AsyncIterator[models.Bed]: ...
 
-    async def list_beds_in_ward(self, *, ward_id: str) -> AsyncIterator[models.Bed]:
-        ...
+    async def list_beds_in_ward(self, *, ward_id: str) -> AsyncIterator[models.Bed]: ...
 
-    async def update_bed(self, *, id: str, ward_id: str) -> models.Bed | None:
-        ...
+    async def update_bed(self, *, id: str, ward_id: str) -> models.Bed | None: ...
 
 
 class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
@@ -190,11 +168,15 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
 
     def count_available_beds_in_ward(self, *, ward_id: str) -> int | None:
         try:
-            row = self._conn.execute(sqlalchemy.text(COUNT_AVAILABLE_BEDS_IN_WARD), {"p1": ward_id}).first()
+            row = self._conn.execute(
+                sqlalchemy.text(COUNT_AVAILABLE_BEDS_IN_WARD), {"p1": ward_id}
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "count_available_beds_in_ward") from e
         except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_available_beds_in_ward") from e
+            raise errors._wrap_operational_error(
+                e, "count_available_beds_in_ward"
+            ) from e
         if row is None:
             return None
         return cast(int, row[0])
@@ -212,11 +194,15 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
 
     def count_occupied_beds_in_ward(self, *, ward_id: str) -> int | None:
         try:
-            row = self._conn.execute(sqlalchemy.text(COUNT_OCCUPIED_BEDS_IN_WARD), {"p1": ward_id}).first()
+            row = self._conn.execute(
+                sqlalchemy.text(COUNT_OCCUPIED_BEDS_IN_WARD), {"p1": ward_id}
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "count_occupied_beds_in_ward") from e
         except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_occupied_beds_in_ward") from e
+            raise errors._wrap_operational_error(
+                e, "count_occupied_beds_in_ward"
+            ) from e
         if row is None:
             return None
         return cast(int, row[0])
@@ -234,7 +220,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
 
     def count_total_beds_in_ward(self, *, ward_id: str) -> int | None:
         try:
-            row = self._conn.execute(sqlalchemy.text(COUNT_TOTAL_BEDS_IN_WARD), {"p1": ward_id}).first()
+            row = self._conn.execute(
+                sqlalchemy.text(COUNT_TOTAL_BEDS_IN_WARD), {"p1": ward_id}
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "count_total_beds_in_ward") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -245,7 +233,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
 
     def create_bed(self, *, ward_id: str) -> models.Bed | None:
         try:
-            row = self._conn.execute(sqlalchemy.text(CREATE_BED), {"p1": ward_id}).first()
+            row = self._conn.execute(
+                sqlalchemy.text(CREATE_BED), {"p1": ward_id}
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "create_bed") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -286,7 +276,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
 
     def list_beds_in_ward(self, *, ward_id: str) -> Iterator[models.Bed]:
         try:
-            result = self._conn.execute(sqlalchemy.text(LIST_BEDS_IN_WARD), {"p1": ward_id})
+            result = self._conn.execute(
+                sqlalchemy.text(LIST_BEDS_IN_WARD), {"p1": ward_id}
+            )
             for row in result:
                 yield models.Bed(
                     id=cast(str, row[0]),
@@ -299,7 +291,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
 
     def update_bed(self, *, id: str, ward_id: str) -> models.Bed | None:
         try:
-            row = self._conn.execute(sqlalchemy.text(UPDATE_BED), {"p1": id, "p2": ward_id}).first()
+            row = self._conn.execute(
+                sqlalchemy.text(UPDATE_BED), {"p1": id, "p2": ward_id}
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "update_bed") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -312,7 +306,9 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
         )
 
 
-class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.asyncio.AsyncSession]:
+class AsyncQuerier[
+    T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.asyncio.AsyncSession
+]:
     _conn: T
 
     def __init__(self, conn: T):
@@ -320,7 +316,9 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def count_available_beds(self) -> int | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(COUNT_AVAILABLE_BEDS))).first()
+            row = (
+                await self._conn.execute(sqlalchemy.text(COUNT_AVAILABLE_BEDS))
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "count_available_beds") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -331,18 +329,26 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def count_available_beds_in_ward(self, *, ward_id: str) -> int | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(COUNT_AVAILABLE_BEDS_IN_WARD), {"p1": ward_id})).first()
+            row = (
+                await self._conn.execute(
+                    sqlalchemy.text(COUNT_AVAILABLE_BEDS_IN_WARD), {"p1": ward_id}
+                )
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "count_available_beds_in_ward") from e
         except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_available_beds_in_ward") from e
+            raise errors._wrap_operational_error(
+                e, "count_available_beds_in_ward"
+            ) from e
         if row is None:
             return None
         return cast(int, row[0])
 
     async def count_occupied_beds(self) -> int | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(COUNT_OCCUPIED_BEDS))).first()
+            row = (
+                await self._conn.execute(sqlalchemy.text(COUNT_OCCUPIED_BEDS))
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "count_occupied_beds") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -353,11 +359,17 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def count_occupied_beds_in_ward(self, *, ward_id: str) -> int | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(COUNT_OCCUPIED_BEDS_IN_WARD), {"p1": ward_id})).first()
+            row = (
+                await self._conn.execute(
+                    sqlalchemy.text(COUNT_OCCUPIED_BEDS_IN_WARD), {"p1": ward_id}
+                )
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "count_occupied_beds_in_ward") from e
         except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_occupied_beds_in_ward") from e
+            raise errors._wrap_operational_error(
+                e, "count_occupied_beds_in_ward"
+            ) from e
         if row is None:
             return None
         return cast(int, row[0])
@@ -375,7 +387,11 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def count_total_beds_in_ward(self, *, ward_id: str) -> int | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(COUNT_TOTAL_BEDS_IN_WARD), {"p1": ward_id})).first()
+            row = (
+                await self._conn.execute(
+                    sqlalchemy.text(COUNT_TOTAL_BEDS_IN_WARD), {"p1": ward_id}
+                )
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "count_total_beds_in_ward") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -386,7 +402,9 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def create_bed(self, *, ward_id: str) -> models.Bed | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(CREATE_BED), {"p1": ward_id})).first()
+            row = (
+                await self._conn.execute(sqlalchemy.text(CREATE_BED), {"p1": ward_id})
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "create_bed") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -400,7 +418,9 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def delete_bed(self, *, id: str) -> models.Bed | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(DELETE_BED), {"p1": id})).first()
+            row = (
+                await self._conn.execute(sqlalchemy.text(DELETE_BED), {"p1": id})
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "delete_bed") from e
         except sqlalchemy.exc.OperationalError as e:
@@ -427,7 +447,9 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def list_beds_in_ward(self, *, ward_id: str) -> AsyncIterator[models.Bed]:
         try:
-            result = await self._conn.stream(sqlalchemy.text(LIST_BEDS_IN_WARD), {"p1": ward_id})
+            result = await self._conn.stream(
+                sqlalchemy.text(LIST_BEDS_IN_WARD), {"p1": ward_id}
+            )
             async for row in result:
                 yield models.Bed(
                     id=cast(str, row[0]),
@@ -440,7 +462,11 @@ class AsyncQuerier[T: sqlalchemy.ext.asyncio.AsyncConnection | sqlalchemy.ext.as
 
     async def update_bed(self, *, id: str, ward_id: str) -> models.Bed | None:
         try:
-            row = (await self._conn.execute(sqlalchemy.text(UPDATE_BED), {"p1": id, "p2": ward_id})).first()
+            row = (
+                await self._conn.execute(
+                    sqlalchemy.text(UPDATE_BED), {"p1": id, "p2": ward_id}
+                )
+            ).first()
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "update_bed") from e
         except sqlalchemy.exc.OperationalError as e:
