@@ -1,0 +1,20 @@
+[project]
+name = "api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "Kenneth V. Domingo", email = "hello@kvd.studio" }]
+requires-python = "~=3.14.0"
+dependencies = [
+    "asyncpg>=0.31.0",
+    "fastapi[standard]>=0.128.8",
+    "loguru>=0.7.3",
+    "psycopg2-binary>=2.9.13",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "ruff>=0.16.8",
+    "scalar-fastapi>=1.9.0",
+    "sqlalchemy>=2.0.54",
+    "ty>=0.0.83",
+    "uvicorn>=0.39.0",
+]
