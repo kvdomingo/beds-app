@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 
 import {
   NavigationMenu,
@@ -14,22 +14,24 @@ const links = [
     href: "/",
   },
   {
-    label: "Beds",
-    href: "/beds",
-  },
-  {
     label: "Patients",
     href: "/patients",
   },
 ];
 
 export function Navbar() {
+  const location = useLocation();
+
   return (
     <NavigationMenu>
       <NavigationMenuList>
         {links.map((link) => (
           <NavigationMenuItem key={link.href}>
-            <NavigationMenuLink className={navigationMenuTriggerStyle()} asChild>
+            <NavigationMenuLink
+              className={navigationMenuTriggerStyle()}
+              asChild
+              active={location.pathname === link.href}
+            >
               <Link to={link.href}>{link.label}</Link>
             </NavigationMenuLink>
           </NavigationMenuItem>

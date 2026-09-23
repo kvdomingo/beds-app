@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 
 from app.core.utils import alist
-from app.repositories.generated.models import Ward
+from app.repositories.generated.models import Bed, Ward
 from app.repositories.generated.wards import ListWardsCountsRow
 from app.repositories.queriers import Queriers, get_queriers
 
@@ -13,6 +13,11 @@ router = APIRouter(prefix="/wards", tags=["wards"])
 @router.get("", response_model=list[ListWardsCountsRow])
 async def list_wards(q: Queriers = Depends(get_queriers)):
     return await alist(q.wards.list_wards_counts())
+
+
+@router.get("/{id}/beds", response_model=list[Bed])
+async def list_beds_in_ward(id: str, q: Queriers = Depends(get_queriers)):
+    return await alist(q.beds.list_beds_in_ward(ward_id=id))
 
 
 @router.post("", response_model=Ward)
@@ -42,7 +47,8 @@ async def update_ward(
 
     total_beds = (await q.beds.count_total_beds_in_ward(ward_id=id)) or 0
     available_beds = (await q.beds.count_available_beds_in_ward(ward_id=id)) or 0
-    if bed_capacity < available_beds:
+    occupied_beds = total_beds - available_beds
+    if bed_capacity < occupied_beds:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot set lower bed capacity ({bed_capacity}) than available beds ({available_beds}).",

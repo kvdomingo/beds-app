@@ -22,6 +22,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/wards/{id}/beds": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Beds In Ward */
+    get: operations["list_beds_in_ward_wards__id__beds_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/wards/{id}": {
     parameters: {
       query?: never;
@@ -75,6 +92,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/patients": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Patients */
+    get: operations["list_patients_patients_get"];
+    put?: never;
+    /** Check In Patient */
+    post: operations["check_in_patient_patients_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/patients/{id}": {
     parameters: {
       query?: never;
@@ -86,26 +121,9 @@ export interface paths {
     get: operations["get_patient_patients__id__get"];
     /** Move Patient */
     put: operations["move_patient_patients__id__put"];
+    post?: never;
     /** Check Out Patient */
-    post: operations["check_out_patient_patients__id__post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/patients": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Check In Patient */
-    post: operations["check_in_patient_patients_post"];
-    delete?: never;
+    delete: operations["check_out_patient_patients__id__delete"];
     options?: never;
     head?: never;
     patch?: never;
@@ -167,6 +185,24 @@ export interface components {
     HTTPValidationError: {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
+    };
+    /** ListPatientsRow */
+    ListPatientsRow: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /**
+       * Admitted At
+       * Format: date-time
+       */
+      admitted_at: string;
+      /** Bed Id */
+      bed_id: string | null;
+      /** Ward Id */
+      ward_id: string | null;
+      /** Ward Name */
+      ward_name: string | null;
     };
     /** ListWardsCountsRow */
     ListWardsCountsRow: {
@@ -291,6 +327,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Ward"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_beds_in_ward_wards__id__beds_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Bed"][];
         };
       };
       /** @description Validation Error */
@@ -454,6 +521,59 @@ export interface operations {
       };
     };
   };
+  list_patients_patients_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ListPatientsRow"][];
+        };
+      };
+    };
+  };
+  check_in_patient_patients_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Body_check_in_patient_patients_post"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Patient"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   get_patient_patients__id__get: {
     parameters: {
       query?: never;
@@ -489,7 +609,9 @@ export interface operations {
     parameters: {
       query?: never;
       header?: never;
-      path?: never;
+      path: {
+        id: string;
+      };
       cookie?: never;
     };
     requestBody: {
@@ -518,7 +640,7 @@ export interface operations {
       };
     };
   };
-  check_out_patient_patients__id__post: {
+  check_out_patient_patients__id__delete: {
     parameters: {
       query?: never;
       header?: never;
@@ -528,39 +650,6 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Patient"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  check_in_patient_patients_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Body_check_in_patient_patients_post"];
-      };
-    };
     responses: {
       /** @description Successful Response */
       200: {

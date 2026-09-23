@@ -20,12 +20,12 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Spinner } from "./ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 const FormSchema = z.object({
   name: z.string().nonempty({ error: "This field is required" }),
   bed_capacity: z.number().nonnegative({ error: "Bed capacity cannot be negative" }),
 }) satisfies z.ZodType<components["schemas"]["Body_create_ward_wards_post"]>;
-type FormSchema = z.infer<typeof FormSchema>;
 
 const Route = getRouteApi("/");
 
@@ -85,6 +85,7 @@ export function UpsertWardDialog(
           {
             onSuccess: (data) => {
               queryClient.invalidateQueries({ queryKey: listWardsQueryKey });
+              queryClient.invalidateQueries({ queryKey: ["get", "/wards/{id}/beds"] });
               toast.success(`Ward ${data.name} updated successfully!`);
               handleOpenChange(false);
             },
@@ -98,6 +99,7 @@ export function UpsertWardDialog(
           {
             onSuccess: (data) => {
               queryClient.invalidateQueries({ queryKey: listWardsQueryKey });
+              queryClient.invalidateQueries({ queryKey: ["get", "/wards/{id}/beds"] });
               toast.success(`Ward ${data.name} created successfully!`);
               handleOpenChange(false);
             },
@@ -116,17 +118,22 @@ export function UpsertWardDialog(
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant={props.isEditing ? "ghost" : undefined}>
-          {props.isEditing ? (
-            <PencilIcon />
-          ) : (
-            <>
-              <PlusIcon />
-              Create Ward
-            </>
-          )}
-        </Button>
+      <DialogTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant={props.isEditing ? "ghost" : undefined}>
+              {props.isEditing ? (
+                <PencilIcon />
+              ) : (
+                <>
+                  <PlusIcon />
+                  Create Ward
+                </>
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Edit</TooltipContent>
+        </Tooltip>
       </DialogTrigger>
       <DialogContent>
         <form
@@ -237,10 +244,15 @@ export function DeleteWardDialog({ ward }: { ward: components["schemas"]["Ward"]
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" className="group">
-          <Trash2Icon className="group-hover:stroke-destructive-foreground" />
-        </Button>
+      <DialogTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" className="group">
+              <Trash2Icon className="group-hover:stroke-destructive-foreground" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Delete</TooltipContent>
+        </Tooltip>
       </DialogTrigger>
       <DialogContent>
         <form

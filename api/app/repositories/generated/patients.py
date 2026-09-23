@@ -3,10 +3,10 @@
 #   sqlc v1.31.1
 # source: patients.sql
 from collections.abc import AsyncIterator, Iterator
+import pydantic
 import typing
 from typing import cast
 
-import pydantic
 import sqlalchemy
 import sqlalchemy.exc
 import sqlalchemy.ext.asyncio
@@ -39,10 +39,28 @@ WHERE id = :p1
 
 
 LIST_PATIENTS = """-- name: list_patients \\:many
-SELECT id, created_at, updated_at, name, bed_id, is_admitted
-FROM patients
-ORDER BY id DESC
+SELECT
+    p.id,
+    p.name,
+    p.created_at AS admitted_at,
+    b.id AS bed_id,
+    w.id AS ward_id,
+    w.name AS ward_name
+FROM patients p
+LEFT JOIN beds b ON b.id = p.bed_id
+LEFT JOIN wards w ON w.id = b.ward_id
+WHERE p.is_admitted
+ORDER BY p.created_at
 """
+
+
+class ListPatientsRow(pydantic.BaseModel):
+    id: str
+    name: str
+    admitted_at: pydantic.AwareDatetime
+    bed_id: str | None
+    ward_id: str | None
+    ward_name: str | None
 
 
 MOVE_PATIENT = """-- name: move_patient \\:one
@@ -62,7 +80,7 @@ class QuerierProtocol(typing.Protocol):
 
     def get_patient(self, *, id: str) -> models.Patient | None: ...
 
-    def list_patients(self) -> Iterator[models.Patient]: ...
+    def list_patients(self) -> Iterator[ListPatientsRow]: ...
 
     def move_patient(self, *, id: str, bed_id: str | None) -> models.Patient | None: ...
 
@@ -76,7 +94,7 @@ class AsyncQuerierProtocol(typing.Protocol):
 
     async def get_patient(self, *, id: str) -> models.Patient | None: ...
 
-    async def list_patients(self) -> AsyncIterator[models.Patient]: ...
+    async def list_patients(self) -> AsyncIterator[ListPatientsRow]: ...
 
     async def move_patient(
         self, *, id: str, bed_id: str | None
@@ -149,17 +167,17 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             is_admitted=cast(bool, row[5]),
         )
 
-    def list_patients(self) -> Iterator[models.Patient]:
+    def list_patients(self) -> Iterator[ListPatientsRow]:
         try:
             result = self._conn.execute(sqlalchemy.text(LIST_PATIENTS))
             for row in result:
-                yield models.Patient(
+                yield ListPatientsRow(
                     id=cast(str, row[0]),
-                    created_at=cast(pydantic.AwareDatetime, row[1]),
-                    updated_at=cast(pydantic.AwareDatetime, row[2]),
-                    name=cast(str, row[3]),
-                    bed_id=cast(str | None, row[4]),
-                    is_admitted=cast(bool, row[5]),
+                    name=cast(str, row[1]),
+                    admitted_at=cast(pydantic.AwareDatetime, row[2]),
+                    bed_id=cast(str | None, row[3]),
+                    ward_id=cast(str | None, row[4]),
+                    ward_name=cast(str | None, row[5]),
                 )
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "list_patients") from e
@@ -259,17 +277,17 @@ class AsyncQuerier[
             is_admitted=cast(bool, row[5]),
         )
 
-    async def list_patients(self) -> AsyncIterator[models.Patient]:
+    async def list_patients(self) -> AsyncIterator[ListPatientsRow]:
         try:
             result = await self._conn.stream(sqlalchemy.text(LIST_PATIENTS))
             async for row in result:
-                yield models.Patient(
+                yield ListPatientsRow(
                     id=cast(str, row[0]),
-                    created_at=cast(pydantic.AwareDatetime, row[1]),
-                    updated_at=cast(pydantic.AwareDatetime, row[2]),
-                    name=cast(str, row[3]),
-                    bed_id=cast(str | None, row[4]),
-                    is_admitted=cast(bool, row[5]),
+                    name=cast(str, row[1]),
+                    admitted_at=cast(pydantic.AwareDatetime, row[2]),
+                    bed_id=cast(str | None, row[3]),
+                    ward_id=cast(str | None, row[4]),
+                    ward_name=cast(str | None, row[5]),
                 )
         except sqlalchemy.exc.IntegrityError as e:
             raise errors._wrap_integrity_error(e, "list_patients") from e

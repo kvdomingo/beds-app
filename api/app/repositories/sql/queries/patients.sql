@@ -1,7 +1,16 @@
 -- name: ListPatients :many
-SELECT *
-FROM patients
-ORDER BY id DESC;
+SELECT
+    p.id,
+    p.name,
+    p.created_at AS admitted_at,
+    b.id AS bed_id,
+    w.id AS ward_id,
+    w.name AS ward_name
+FROM patients p
+LEFT JOIN beds b ON b.id = p.bed_id
+LEFT JOIN wards w ON w.id = b.ward_id
+WHERE p.is_admitted
+ORDER BY p.created_at;
 
 
 -- name: CheckInPatient :one
