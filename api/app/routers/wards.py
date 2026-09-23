@@ -19,3 +19,8 @@ async def create_ward(
     name: Annotated[str, Body(embed=True)], q: Queriers = Depends(get_queriers)
 ):
     return await q.wards.create_ward(name=name)
+
+
+@router.delete("/{id}", response_model=Ward)
+async def delete_ward(id: str, q: Queriers = Depends(get_queriers)):
+    return await q.wards.delete_ward(id=id)

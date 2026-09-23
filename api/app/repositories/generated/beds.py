@@ -3,6 +3,7 @@
 #   sqlc v1.31.1
 # source: beds.sql
 from collections.abc import AsyncIterator, Iterator
+import pydantic
 import typing
 from typing import cast
 
@@ -15,55 +16,26 @@ from app.repositories.generated import errors
 from app.repositories.generated import models
 
 
-COUNT_AVAILABLE_BEDS = """-- name: count_available_beds \\:one
-SELECT COUNT(*)
+COUNT_BEDS_BY_WARD = """-- name: count_beds_by_ward \\:many
+SELECT
+    b.ward_id,
+    w.name,
+    COUNT(*) AS count_total,
+    COUNT(*) FILTER (WHERE p.is_admitted) AS count_occupied,
+    COUNT(*) FILTER (WHERE NOT p.is_admitted) AS count_available
 FROM beds b
-JOIN patients p
-    ON p.bed_id = b.id
-    AND NOT p.is_admitted
+LEFT JOIN patients p ON p.bed_id = b.id
+LEFT JOIN wards w ON w.id = b.ward_id
+GROUP BY b.ward_id
 """
 
 
-COUNT_AVAILABLE_BEDS_IN_WARD = """-- name: count_available_beds_in_ward \\:one
-SELECT COUNT(*)
-FROM beds b
-JOIN patients p
-    ON p.bed_id = b.id
-    AND NOT p.is_admitted
-WHERE b.ward_id = :p1
-"""
-
-
-COUNT_OCCUPIED_BEDS = """-- name: count_occupied_beds \\:one
-SELECT COUNT(*)
-FROM beds b
-JOIN patients p
-    ON p.bed_id = b.id
-    AND p.is_admitted
-"""
-
-
-COUNT_OCCUPIED_BEDS_IN_WARD = """-- name: count_occupied_beds_in_ward \\:one
-SELECT COUNT(*)
-FROM beds b
-JOIN patients p
-    ON p.bed_id = b.id
-    AND p.is_admitted
-WHERE b.ward_id = :p1
-"""
-
-
-COUNT_TOTAL_BEDS = """-- name: count_total_beds \\:one
-SELECT COUNT(*)
-FROM beds
-"""
-
-
-COUNT_TOTAL_BEDS_IN_WARD = """-- name: count_total_beds_in_ward \\:one
-SELECT COUNT(*)
-FROM beds
-WHERE ward_id = :p1
-"""
+class CountBedsByWardRow(pydantic.BaseModel):
+    ward_id: str
+    name: str | None
+    count_total: int
+    count_occupied: int
+    count_available: int
 
 
 CREATE_BED = """-- name: create_bed \\:one
@@ -102,17 +74,7 @@ RETURNING id, ward_id
 
 
 class QuerierProtocol(typing.Protocol):
-    def count_available_beds(self) -> int | None: ...
-
-    def count_available_beds_in_ward(self, *, ward_id: str) -> int | None: ...
-
-    def count_occupied_beds(self) -> int | None: ...
-
-    def count_occupied_beds_in_ward(self, *, ward_id: str) -> int | None: ...
-
-    def count_total_beds(self) -> int | None: ...
-
-    def count_total_beds_in_ward(self, *, ward_id: str) -> int | None: ...
+    def count_beds_by_ward(self) -> Iterator[CountBedsByWardRow]: ...
 
     def create_bed(self, *, ward_id: str) -> models.Bed | None: ...
 
@@ -126,17 +88,7 @@ class QuerierProtocol(typing.Protocol):
 
 
 class AsyncQuerierProtocol(typing.Protocol):
-    async def count_available_beds(self) -> int | None: ...
-
-    async def count_available_beds_in_ward(self, *, ward_id: str) -> int | None: ...
-
-    async def count_occupied_beds(self) -> int | None: ...
-
-    async def count_occupied_beds_in_ward(self, *, ward_id: str) -> int | None: ...
-
-    async def count_total_beds(self) -> int | None: ...
-
-    async def count_total_beds_in_ward(self, *, ward_id: str) -> int | None: ...
+    async def count_beds_by_ward(self) -> AsyncIterator[CountBedsByWardRow]: ...
 
     async def create_bed(self, *, ward_id: str) -> models.Bed | None: ...
 
@@ -155,81 +107,21 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
     def __init__(self, conn: T):
         self._conn = conn
 
-    def count_available_beds(self) -> int | None:
+    def count_beds_by_ward(self) -> Iterator[CountBedsByWardRow]:
         try:
-            row = self._conn.execute(sqlalchemy.text(COUNT_AVAILABLE_BEDS)).first()
+            result = self._conn.execute(sqlalchemy.text(COUNT_BEDS_BY_WARD))
+            for row in result:
+                yield CountBedsByWardRow(
+                    ward_id=cast(str, row[0]),
+                    name=cast(str | None, row[1]),
+                    count_total=cast(int, row[2]),
+                    count_occupied=cast(int, row[3]),
+                    count_available=cast(int, row[4]),
+                )
         except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_available_beds") from e
+            raise errors._wrap_integrity_error(e, "count_beds_by_ward") from e
         except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_available_beds") from e
-        if row is None:
-            return None
-        return cast(int, row[0])
-
-    def count_available_beds_in_ward(self, *, ward_id: str) -> int | None:
-        try:
-            row = self._conn.execute(
-                sqlalchemy.text(COUNT_AVAILABLE_BEDS_IN_WARD), {"p1": ward_id}
-            ).first()
-        except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_available_beds_in_ward") from e
-        except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(
-                e, "count_available_beds_in_ward"
-            ) from e
-        if row is None:
-            return None
-        return cast(int, row[0])
-
-    def count_occupied_beds(self) -> int | None:
-        try:
-            row = self._conn.execute(sqlalchemy.text(COUNT_OCCUPIED_BEDS)).first()
-        except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_occupied_beds") from e
-        except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_occupied_beds") from e
-        if row is None:
-            return None
-        return cast(int, row[0])
-
-    def count_occupied_beds_in_ward(self, *, ward_id: str) -> int | None:
-        try:
-            row = self._conn.execute(
-                sqlalchemy.text(COUNT_OCCUPIED_BEDS_IN_WARD), {"p1": ward_id}
-            ).first()
-        except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_occupied_beds_in_ward") from e
-        except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(
-                e, "count_occupied_beds_in_ward"
-            ) from e
-        if row is None:
-            return None
-        return cast(int, row[0])
-
-    def count_total_beds(self) -> int | None:
-        try:
-            row = self._conn.execute(sqlalchemy.text(COUNT_TOTAL_BEDS)).first()
-        except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_total_beds") from e
-        except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_total_beds") from e
-        if row is None:
-            return None
-        return cast(int, row[0])
-
-    def count_total_beds_in_ward(self, *, ward_id: str) -> int | None:
-        try:
-            row = self._conn.execute(
-                sqlalchemy.text(COUNT_TOTAL_BEDS_IN_WARD), {"p1": ward_id}
-            ).first()
-        except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_total_beds_in_ward") from e
-        except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_total_beds_in_ward") from e
-        if row is None:
-            return None
-        return cast(int, row[0])
+            raise errors._wrap_operational_error(e, "count_beds_by_ward") from e
 
     def create_bed(self, *, ward_id: str) -> models.Bed | None:
         try:
@@ -314,91 +206,21 @@ class AsyncQuerier[
     def __init__(self, conn: T):
         self._conn = conn
 
-    async def count_available_beds(self) -> int | None:
+    async def count_beds_by_ward(self) -> AsyncIterator[CountBedsByWardRow]:
         try:
-            row = (
-                await self._conn.execute(sqlalchemy.text(COUNT_AVAILABLE_BEDS))
-            ).first()
-        except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_available_beds") from e
-        except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_available_beds") from e
-        if row is None:
-            return None
-        return cast(int, row[0])
-
-    async def count_available_beds_in_ward(self, *, ward_id: str) -> int | None:
-        try:
-            row = (
-                await self._conn.execute(
-                    sqlalchemy.text(COUNT_AVAILABLE_BEDS_IN_WARD), {"p1": ward_id}
+            result = await self._conn.stream(sqlalchemy.text(COUNT_BEDS_BY_WARD))
+            async for row in result:
+                yield CountBedsByWardRow(
+                    ward_id=cast(str, row[0]),
+                    name=cast(str | None, row[1]),
+                    count_total=cast(int, row[2]),
+                    count_occupied=cast(int, row[3]),
+                    count_available=cast(int, row[4]),
                 )
-            ).first()
         except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_available_beds_in_ward") from e
+            raise errors._wrap_integrity_error(e, "count_beds_by_ward") from e
         except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(
-                e, "count_available_beds_in_ward"
-            ) from e
-        if row is None:
-            return None
-        return cast(int, row[0])
-
-    async def count_occupied_beds(self) -> int | None:
-        try:
-            row = (
-                await self._conn.execute(sqlalchemy.text(COUNT_OCCUPIED_BEDS))
-            ).first()
-        except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_occupied_beds") from e
-        except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_occupied_beds") from e
-        if row is None:
-            return None
-        return cast(int, row[0])
-
-    async def count_occupied_beds_in_ward(self, *, ward_id: str) -> int | None:
-        try:
-            row = (
-                await self._conn.execute(
-                    sqlalchemy.text(COUNT_OCCUPIED_BEDS_IN_WARD), {"p1": ward_id}
-                )
-            ).first()
-        except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_occupied_beds_in_ward") from e
-        except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(
-                e, "count_occupied_beds_in_ward"
-            ) from e
-        if row is None:
-            return None
-        return cast(int, row[0])
-
-    async def count_total_beds(self) -> int | None:
-        try:
-            row = (await self._conn.execute(sqlalchemy.text(COUNT_TOTAL_BEDS))).first()
-        except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_total_beds") from e
-        except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_total_beds") from e
-        if row is None:
-            return None
-        return cast(int, row[0])
-
-    async def count_total_beds_in_ward(self, *, ward_id: str) -> int | None:
-        try:
-            row = (
-                await self._conn.execute(
-                    sqlalchemy.text(COUNT_TOTAL_BEDS_IN_WARD), {"p1": ward_id}
-                )
-            ).first()
-        except sqlalchemy.exc.IntegrityError as e:
-            raise errors._wrap_integrity_error(e, "count_total_beds_in_ward") from e
-        except sqlalchemy.exc.OperationalError as e:
-            raise errors._wrap_operational_error(e, "count_total_beds_in_ward") from e
-        if row is None:
-            return None
-        return cast(int, row[0])
+            raise errors._wrap_operational_error(e, "count_beds_by_ward") from e
 
     async def create_bed(self, *, ward_id: str) -> models.Bed | None:
         try:

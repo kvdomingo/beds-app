@@ -20,7 +20,7 @@ class Settings(BaseSettings):
             port=self.POSTGRES_PORT,
             username=self.POSTGRES_USER,
             password=self.POSTGRES_PASSWORD.get_secret_value(),
-            path=f"/{self.POSTGRES_DB}",
+            path=self.POSTGRES_DB,
         ).encoded_string()
 
 
