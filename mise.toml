@@ -1,7 +1,9 @@
 [tools]
 bun = "latest"
 dbmate = "latest"
+infisical = { version = "latest", asset_pattern = "cli_{{ version }}_linux_amd64.tar.gz" }
 prek = "latest"
 python = { version = "3.14", postinstall = "pip install -r ~/requirements.txt" }
+rumdl = "latest"
 sqlc = "latest"
 uv = "latest"
