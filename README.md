@@ -27,7 +27,7 @@ ui/src/
 ### Prerequisites
 
 - [mise](https://mise.jdx.dev) — installs bun, dbmate, prek, Python 3.14,
-  Infisical, sqlc, and uv from `mise.toml`
+  Infisical (optional), sqlc, and uv from `mise.toml`
 - [Docker](https://docs.docker.com/get-started/get-docker/) with Compose
 - [direnv](https://direnv.net) to load `.envrc`
 
@@ -51,11 +51,14 @@ points dbmate at `api/app/repositories/sql/migrations` — without direnv, expor
 `DBMATE_MIGRATIONS_DIR` and `DBMATE_NO_DUMP_SCHEMA=true` yourself or pass
 `--migrations-dir`.
 
+If you are not using Infisical, copy the contents of `.env.example` to `.env`
+and supply the values. Otherwise, prefix all commands with `infisical run --`.
+
 ### 2. Database
 
 ```sh
-infisical run -- docker compose up --wait  # Postgres on localhost:5400
-infisical run -- dbmate up  # Run initial database migrations
+docker compose up --wait  # Postgres on localhost:5400
+dbmate up  # Run initial database migrations
 ```
 
 ### 3. API
@@ -63,7 +66,7 @@ infisical run -- dbmate up  # Run initial database migrations
 ```sh
 cd api
 uv sync --dev --all-groups
-infisical run -- uv run fastapi dev --host 0.0.0.0 --port 8400
+uv run fastapi dev --host 0.0.0.0 --port 8400
 ```
 
 The UI expects the API at `http://localhost:8400`.
@@ -85,7 +88,7 @@ To change or add new data models:
 dbmate new <name>
 # 2. Make your DDL changes in the migration file
 # 3. Apply migration
-infisical run -- dbmate up
+dbmate up
 ```
 
 After changing SQL queries:
