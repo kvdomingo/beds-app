@@ -55,14 +55,14 @@ services:
       database:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:$${PORT}/api/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:$${PORT}/api/health"]
       interval: 20s
       timeout: 2s
       retries: 3
       start_period: 10s
 
   ui:
-    image: oven/bun:1
+    image: oven/bun:1.4
     restart: unless-stopped
     user: 1000:1000
     working_dir: /app
@@ -70,7 +70,7 @@ services:
     command:
       - |
         bun install
-        exec bun run dev --port $${PORT}
+        exec bun run dev --host 0.0.0.0 --port $${PORT}
     environment:
       NODE_ENV: development
       PORT: 8300

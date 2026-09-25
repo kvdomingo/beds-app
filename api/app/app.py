@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from scalar_fastapi import add_scalar_reference
 
 from app.routers import beds, patients, wards
@@ -18,6 +19,12 @@ app.add_middleware(
     allow_credentials=True,
 )
 add_scalar_reference(app, route="/docs")
+
+
+@app.get("/health", response_class=PlainTextResponse)
+def health_check():
+    return "ok"
+
 
 app.include_router(wards.router)
 app.include_router(beds.router)
