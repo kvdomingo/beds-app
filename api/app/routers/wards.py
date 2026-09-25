@@ -1,13 +1,18 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Security, status
 
+from app.core.auth import get_user
 from app.core.utils import alist
 from app.repositories.generated.models import Bed, User, Ward
 from app.repositories.generated.wards import ListWardsCountsRow
 from app.repositories.queriers import Queriers, get_queriers
 
-router = APIRouter(prefix="/wards", tags=["wards"])
+router = APIRouter(
+    prefix="/wards",
+    tags=["wards"],
+    dependencies=[Security(get_user, scopes=["authenticated"])],
+)
 
 
 @router.get("", response_model=list[ListWardsCountsRow])

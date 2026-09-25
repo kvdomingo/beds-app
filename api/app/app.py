@@ -48,7 +48,7 @@ async def docs():
     )
 
 
-@app.get("/health", response_class=PlainTextResponse)
+@app.get("/health", response_class=PlainTextResponse, tags=["core"])
 async def health_check():
     return "ok"
 

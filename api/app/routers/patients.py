@@ -1,13 +1,18 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Security
 
+from app.core.auth import get_user
 from app.core.utils import alist
 from app.repositories.generated.models import Patient
 from app.repositories.generated.patients import ListPatientsRow
 from app.repositories.queriers import Queriers, get_queriers
 
-router = APIRouter(prefix="/patients", tags=["patients"])
+router = APIRouter(
+    prefix="/patients",
+    tags=["patients"],
+    dependencies=[Security(get_user, scopes=["authenticated"])],
+)
 
 
 @router.get("", response_model=list[ListPatientsRow])
