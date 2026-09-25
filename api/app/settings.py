@@ -1,15 +1,34 @@
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import PostgresDsn, SecretStr, computed_field
+from pydantic import HttpUrl, PostgresDsn, SecretStr, computed_field
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    PYTHON_ENV: Literal["development", "production"] = "development"
+    SECRET_KEY: SecretStr
+
     POSTGRES_USER: str
     POSTGRES_PASSWORD: SecretStr
     POSTGRES_HOST: str
     POSTGRES_PORT: int
     POSTGRES_DB: str
+
+    SUPABASE_URL: HttpUrl
+    SUPABASE_JWKS_URL: HttpUrl
+    SUPABASE_SECRET_KEY: SecretStr
+    SUPABASE_PUBLIC_KEY: SecretStr
+
+    @computed_field
+    @property
+    def is_dev(self) -> bool:
+        return self.PYTHON_ENV == "development"
+
+    @computed_field
+    @property
+    def is_prod(self) -> bool:
+        return self.PYTHON_ENV == "production"
 
     @computed_field
     @property

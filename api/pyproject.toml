@@ -8,6 +8,7 @@ requires-python = "~=3.14.0"
 dependencies = [
     "asyncpg>=0.31.0",
     "fastapi[standard]>=0.128.8",
+    "itsdangerous>=2.2.0",
     "loguru>=0.7.3",
     "psycopg2-binary>=2.9.13",
     "pydantic>=2.13.5",
@@ -15,6 +16,16 @@ dependencies = [
     "ruff>=0.16.8",
     "scalar-fastapi>=1.9.0",
     "sqlalchemy>=2.0.54",
+    "supabase>=2.31.0",
     "ty>=0.0.83",
     "uvicorn>=0.39.0",
 ]
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint.flake8-builtins]
+builtins-ignorelist = ["id"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Body"]

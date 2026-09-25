@@ -25,10 +25,11 @@ CREATE INDEX beds__ward_id_ix ON beds (ward_id);
 
 CREATE TABLE users (
   id TEXT PRIMARY KEY DEFAULT idkit_ulid_generate(),
+  provider_id TEXT NOT NULL UNIQUE,
   created_at TIMESTAMPTZ NOT NULL GENERATED ALWAYS AS (IMMUTABLE_NOW()) STORED,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE
+  email TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL
 );
 
 CREATE TABLE patients (

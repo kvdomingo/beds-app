@@ -2,8 +2,8 @@
 # versions:
 #   sqlc v1.31.1
 # source: beds.sql
-from collections.abc import AsyncIterator, Iterator
 import typing
+from collections.abc import AsyncIterator, Iterator
 from typing import cast
 
 import pydantic
@@ -12,9 +12,7 @@ import sqlalchemy.exc
 import sqlalchemy.ext.asyncio
 import sqlalchemy.orm
 
-from app.repositories.generated import errors
-from app.repositories.generated import models
-
+from app.repositories.generated import errors, models
 
 COUNT_AVAILABLE_BEDS_IN_WARD = """-- name: count_available_beds_in_ward \\:one
 SELECT COUNT(*)

@@ -2,19 +2,17 @@
 # versions:
 #   sqlc v1.31.1
 # source: wards.sql
-from collections.abc import AsyncIterator, Iterator
-import pydantic
 import typing
+from collections.abc import AsyncIterator, Iterator
 from typing import cast
 
+import pydantic
 import sqlalchemy
 import sqlalchemy.exc
 import sqlalchemy.ext.asyncio
 import sqlalchemy.orm
 
-from app.repositories.generated import errors
-from app.repositories.generated import models
-
+from app.repositories.generated import errors, models
 
 CREATE_WARD = """-- name: create_ward \\:one
 INSERT INTO wards (name)

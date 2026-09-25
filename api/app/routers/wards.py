@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 
 from app.core.utils import alist
-from app.repositories.generated.models import Bed, Ward
+from app.repositories.generated.models import Bed, User, Ward
 from app.repositories.generated.wards import ListWardsCountsRow
 from app.repositories.queriers import Queriers, get_queriers
 
@@ -18,6 +18,11 @@ async def list_wards(q: Queriers = Depends(get_queriers)):
 @router.get("/{id}/beds", response_model=list[Bed])
 async def list_beds_in_ward(id: str, q: Queriers = Depends(get_queriers)):
     return await alist(q.beds.list_beds_in_ward(ward_id=id))
+
+
+@router.get("/{id}/users", response_model=list[User])
+async def list_users_assigned_to_ward(id: str, q: Queriers = Depends(get_queriers)):
+    return await alist(q.users.list_users_in_ward(ward_id=id))
 
 
 @router.post("", response_model=Ward)

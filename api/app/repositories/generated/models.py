@@ -19,12 +19,34 @@ class Patient(pydantic.BaseModel):
     bed_id: str
 
 
-class User(pydantic.BaseModel):
+class Role(pydantic.BaseModel):
     id: str
     created_at: pydantic.AwareDatetime
     updated_at: pydantic.AwareDatetime
     name: str
+
+
+class User(pydantic.BaseModel):
+    id: str
+    provider_id: str
+    created_at: pydantic.AwareDatetime
+    updated_at: pydantic.AwareDatetime
     email: str
+    name: str
+
+
+class UserRoleAssignment(pydantic.BaseModel):
+    created_at: pydantic.AwareDatetime
+    updated_at: pydantic.AwareDatetime
+    user_id: str
+    role_id: str
+
+
+class UserWardAssignment(pydantic.BaseModel):
+    created_at: pydantic.AwareDatetime
+    updated_at: pydantic.AwareDatetime
+    user_id: str
+    ward_id: str
 
 
 class Ward(pydantic.BaseModel):

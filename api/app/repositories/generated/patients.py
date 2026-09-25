@@ -2,19 +2,17 @@
 # versions:
 #   sqlc v1.31.1
 # source: patients.sql
-from collections.abc import AsyncIterator, Iterator
-import pydantic
 import typing
+from collections.abc import AsyncIterator, Iterator
 from typing import cast
 
+import pydantic
 import sqlalchemy
 import sqlalchemy.exc
 import sqlalchemy.ext.asyncio
 import sqlalchemy.orm
 
-from app.repositories.generated import errors
-from app.repositories.generated import models
-
+from app.repositories.generated import errors, models
 
 CHECK_IN_PATIENT = """-- name: check_in_patient \\:one
 INSERT INTO patients (name, bed_id)
