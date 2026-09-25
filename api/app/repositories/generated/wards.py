@@ -49,7 +49,7 @@ WITH t1 AS (
     SELECT
         w.id, w.created_at, w.updated_at, w.name,
         COUNT(DISTINCT b.id) AS bed_capacity,
-        COUNT(DISTINCT p.id) FILTER (WHERE p.is_admitted) AS patients_admitted
+        COUNT(DISTINCT p.id) FILTER (WHERE p.id IS NOT NULL) AS patients_admitted
     FROM wards w
     LEFT JOIN beds b ON b.ward_id = w.id
     LEFT JOIN patients p ON p.bed_id = b.id

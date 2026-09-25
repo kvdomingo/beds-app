@@ -51,15 +51,11 @@ SELECT
     w.id AS ward_id,
     w.name,
     COUNT(b.id) AS count_total,
-    COUNT(b.id) FILTER (WHERE o.bed_id IS NOT NULL) AS patients_admitted,
-    COUNT(b.id) FILTER (WHERE o.bed_id IS NULL) AS bed_availability
+    COUNT(b.id) FILTER (WHERE p.id IS NOT NULL) AS patients_admitted,
+    COUNT(b.id) FILTER (WHERE p.id IS NULL) AS bed_availability
 FROM wards w
 LEFT JOIN beds b ON b.ward_id = w.id
-LEFT JOIN (
-    SELECT DISTINCT bed_id
-    FROM patients
-    WHERE is_admitted
-) o ON o.bed_id = b.id
+LEFT JOIN patients p ON p.bed_id = b.id
 GROUP BY w.id;
 
 -- name: CountAvailableBedsInWard :one
@@ -70,9 +66,7 @@ WHERE
     AND NOT EXISTS (
         SELECT 1
         FROM patients p
-        WHERE
-            p.bed_id = b.id
-            AND p.is_admitted
+        WHERE p.bed_id = b.id
     );
 
 -- name: CountTotalBedsInWard :one

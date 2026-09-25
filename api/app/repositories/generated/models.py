@@ -16,8 +16,7 @@ class Patient(pydantic.BaseModel):
     created_at: pydantic.AwareDatetime
     updated_at: pydantic.AwareDatetime
     name: str
-    bed_id: str | None
-    is_admitted: bool
+    bed_id: str
 
 
 class User(pydantic.BaseModel):

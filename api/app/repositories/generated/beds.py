@@ -24,9 +24,7 @@ WHERE
     AND NOT EXISTS (
         SELECT 1
         FROM patients p
-        WHERE
-            p.bed_id = b.id
-            AND p.is_admitted
+        WHERE p.bed_id = b.id
     )
 """
 

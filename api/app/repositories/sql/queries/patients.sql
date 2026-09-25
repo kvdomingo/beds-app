@@ -9,18 +9,16 @@ SELECT
 FROM patients p
 LEFT JOIN beds b ON b.id = p.bed_id
 LEFT JOIN wards w ON w.id = b.ward_id
-WHERE p.is_admitted
 ORDER BY p.created_at;
 
 
 -- name: CheckInPatient :one
-INSERT INTO patients (name, bed_id, is_admitted)
-VALUES ($1, $2, TRUE)
+INSERT INTO patients (name, bed_id)
+VALUES ($1, $2)
 RETURNING *;
 
 -- name: CheckOutPatient :one
-UPDATE patients
-SET is_admitted = FALSE
+DELETE FROM patients
 WHERE id = $1
 RETURNING *;
 

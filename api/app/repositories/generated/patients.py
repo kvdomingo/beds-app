@@ -17,22 +17,21 @@ from app.repositories.generated import models
 
 
 CHECK_IN_PATIENT = """-- name: check_in_patient \\:one
-INSERT INTO patients (name, bed_id, is_admitted)
-VALUES (:p1, :p2, TRUE)
-RETURNING id, created_at, updated_at, name, bed_id, is_admitted
+INSERT INTO patients (name, bed_id)
+VALUES (:p1, :p2)
+RETURNING id, created_at, updated_at, name, bed_id
 """
 
 
 CHECK_OUT_PATIENT = """-- name: check_out_patient \\:one
-UPDATE patients
-SET is_admitted = FALSE
+DELETE FROM patients
 WHERE id = :p1
-RETURNING id, created_at, updated_at, name, bed_id, is_admitted
+RETURNING id, created_at, updated_at, name, bed_id
 """
 
 
 GET_PATIENT = """-- name: get_patient \\:one
-SELECT id, created_at, updated_at, name, bed_id, is_admitted
+SELECT id, created_at, updated_at, name, bed_id
 FROM patients
 WHERE id = :p1
 """
@@ -49,7 +48,6 @@ SELECT
 FROM patients p
 LEFT JOIN beds b ON b.id = p.bed_id
 LEFT JOIN wards w ON w.id = b.ward_id
-WHERE p.is_admitted
 ORDER BY p.created_at
 """
 
@@ -67,14 +65,12 @@ MOVE_PATIENT = """-- name: move_patient \\:one
 UPDATE patients
 SET bed_id = :p2
 WHERE id = :p1
-RETURNING id, created_at, updated_at, name, bed_id, is_admitted
+RETURNING id, created_at, updated_at, name, bed_id
 """
 
 
 class QuerierProtocol(typing.Protocol):
-    def check_in_patient(
-        self, *, name: str, bed_id: str | None
-    ) -> models.Patient | None: ...
+    def check_in_patient(self, *, name: str, bed_id: str) -> models.Patient | None: ...
 
     def check_out_patient(self, *, id: str) -> models.Patient | None: ...
 
@@ -82,12 +78,12 @@ class QuerierProtocol(typing.Protocol):
 
     def list_patients(self) -> Iterator[ListPatientsRow]: ...
 
-    def move_patient(self, *, id: str, bed_id: str | None) -> models.Patient | None: ...
+    def move_patient(self, *, id: str, bed_id: str) -> models.Patient | None: ...
 
 
 class AsyncQuerierProtocol(typing.Protocol):
     async def check_in_patient(
-        self, *, name: str, bed_id: str | None
+        self, *, name: str, bed_id: str
     ) -> models.Patient | None: ...
 
     async def check_out_patient(self, *, id: str) -> models.Patient | None: ...
@@ -96,9 +92,7 @@ class AsyncQuerierProtocol(typing.Protocol):
 
     async def list_patients(self) -> AsyncIterator[ListPatientsRow]: ...
 
-    async def move_patient(
-        self, *, id: str, bed_id: str | None
-    ) -> models.Patient | None: ...
+    async def move_patient(self, *, id: str, bed_id: str) -> models.Patient | None: ...
 
 
 class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
@@ -107,9 +101,7 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
     def __init__(self, conn: T):
         self._conn = conn
 
-    def check_in_patient(
-        self, *, name: str, bed_id: str | None
-    ) -> models.Patient | None:
+    def check_in_patient(self, *, name: str, bed_id: str) -> models.Patient | None:
         try:
             row = self._conn.execute(
                 sqlalchemy.text(CHECK_IN_PATIENT), {"p1": name, "p2": bed_id}
@@ -125,8 +117,7 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             created_at=cast(pydantic.AwareDatetime, row[1]),
             updated_at=cast(pydantic.AwareDatetime, row[2]),
             name=cast(str, row[3]),
-            bed_id=cast(str | None, row[4]),
-            is_admitted=cast(bool, row[5]),
+            bed_id=cast(str, row[4]),
         )
 
     def check_out_patient(self, *, id: str) -> models.Patient | None:
@@ -145,8 +136,7 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             created_at=cast(pydantic.AwareDatetime, row[1]),
             updated_at=cast(pydantic.AwareDatetime, row[2]),
             name=cast(str, row[3]),
-            bed_id=cast(str | None, row[4]),
-            is_admitted=cast(bool, row[5]),
+            bed_id=cast(str, row[4]),
         )
 
     def get_patient(self, *, id: str) -> models.Patient | None:
@@ -163,8 +153,7 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             created_at=cast(pydantic.AwareDatetime, row[1]),
             updated_at=cast(pydantic.AwareDatetime, row[2]),
             name=cast(str, row[3]),
-            bed_id=cast(str | None, row[4]),
-            is_admitted=cast(bool, row[5]),
+            bed_id=cast(str, row[4]),
         )
 
     def list_patients(self) -> Iterator[ListPatientsRow]:
@@ -184,7 +173,7 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
         except sqlalchemy.exc.OperationalError as e:
             raise errors._wrap_operational_error(e, "list_patients") from e
 
-    def move_patient(self, *, id: str, bed_id: str | None) -> models.Patient | None:
+    def move_patient(self, *, id: str, bed_id: str) -> models.Patient | None:
         try:
             row = self._conn.execute(
                 sqlalchemy.text(MOVE_PATIENT), {"p1": id, "p2": bed_id}
@@ -200,8 +189,7 @@ class Querier[T: sqlalchemy.engine.Connection | sqlalchemy.orm.Session]:
             created_at=cast(pydantic.AwareDatetime, row[1]),
             updated_at=cast(pydantic.AwareDatetime, row[2]),
             name=cast(str, row[3]),
-            bed_id=cast(str | None, row[4]),
-            is_admitted=cast(bool, row[5]),
+            bed_id=cast(str, row[4]),
         )
 
 
@@ -214,7 +202,7 @@ class AsyncQuerier[
         self._conn = conn
 
     async def check_in_patient(
-        self, *, name: str, bed_id: str | None
+        self, *, name: str, bed_id: str
     ) -> models.Patient | None:
         try:
             row = (
@@ -233,8 +221,7 @@ class AsyncQuerier[
             created_at=cast(pydantic.AwareDatetime, row[1]),
             updated_at=cast(pydantic.AwareDatetime, row[2]),
             name=cast(str, row[3]),
-            bed_id=cast(str | None, row[4]),
-            is_admitted=cast(bool, row[5]),
+            bed_id=cast(str, row[4]),
         )
 
     async def check_out_patient(self, *, id: str) -> models.Patient | None:
@@ -253,8 +240,7 @@ class AsyncQuerier[
             created_at=cast(pydantic.AwareDatetime, row[1]),
             updated_at=cast(pydantic.AwareDatetime, row[2]),
             name=cast(str, row[3]),
-            bed_id=cast(str | None, row[4]),
-            is_admitted=cast(bool, row[5]),
+            bed_id=cast(str, row[4]),
         )
 
     async def get_patient(self, *, id: str) -> models.Patient | None:
@@ -273,8 +259,7 @@ class AsyncQuerier[
             created_at=cast(pydantic.AwareDatetime, row[1]),
             updated_at=cast(pydantic.AwareDatetime, row[2]),
             name=cast(str, row[3]),
-            bed_id=cast(str | None, row[4]),
-            is_admitted=cast(bool, row[5]),
+            bed_id=cast(str, row[4]),
         )
 
     async def list_patients(self) -> AsyncIterator[ListPatientsRow]:
@@ -294,9 +279,7 @@ class AsyncQuerier[
         except sqlalchemy.exc.OperationalError as e:
             raise errors._wrap_operational_error(e, "list_patients") from e
 
-    async def move_patient(
-        self, *, id: str, bed_id: str | None
-    ) -> models.Patient | None:
+    async def move_patient(self, *, id: str, bed_id: str) -> models.Patient | None:
         try:
             row = (
                 await self._conn.execute(
@@ -314,6 +297,5 @@ class AsyncQuerier[
             created_at=cast(pydantic.AwareDatetime, row[1]),
             updated_at=cast(pydantic.AwareDatetime, row[2]),
             name=cast(str, row[3]),
-            bed_id=cast(str | None, row[4]),
-            is_admitted=cast(bool, row[5]),
+            bed_id=cast(str, row[4]),
         )
