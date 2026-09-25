@@ -1,5 +1,6 @@
 volumes:
   db-data:
+  venv-data:
 
 services:
   database:
@@ -11,3 +12,72 @@ services:
       - db-data:/var/lib/postgresql
     ports:
       - 5400:5432
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  init-volumes:
+    image: busybox
+    entrypoint: ["/bin/sh", "-eu", "-c"]
+    command:
+      - |
+        chown -R 1000:1000 /app/.venv
+    volumes:
+      - venv-data:/app/.venv
+
+  api:
+    build: api
+    image: ghcr.io/kvdomingo/beds-api
+    restart: unless-stopped
+    environment:
+      PORT: 8400
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: database
+      POSTGRES_PORT: 5432
+      DATABASE_URL: ${DATABASE_URL}
+    command:
+      - |
+        uv sync --dev --all-groups
+        exec uv run fastapi dev --host 0.0.0.0 --port $${PORT}
+    volumes:
+      - venv-data:/app/.venv
+      - ./api:/app
+    ports:
+      - "8400:8400"
+    depends_on:
+      init-volumes:
+        condition: service_completed_successfully
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:$${PORT}/api/health"]
+      interval: 20s
+      timeout: 2s
+      retries: 3
+      start_period: 10s
+
+  ui:
+    image: oven/bun:1
+    restart: unless-stopped
+    user: 1000:1000
+    working_dir: /app
+    entrypoint: ["/bin/bash", "-euxo", "pipefail", "-c"]
+    command:
+      - |
+        bun install
+        exec bun run dev --port $${PORT}
+    environment:
+      NODE_ENV: development
+      PORT: 8300
+    volumes:
+      - ./ui:/app
+    ports:
+      - "8300:8300"
+    depends_on:
+      api:
+        condition: service_healthy
