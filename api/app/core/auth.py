@@ -34,8 +34,6 @@ class SupabaseAuthBackend(AuthenticationBackend):
         self, conn: HTTPConnection
     ) -> tuple[AuthCredentials, BaseUser] | None:
         auth = conn.session.get("user")
-        logger.debug(auth)
-
         if not auth:
             return None
 
